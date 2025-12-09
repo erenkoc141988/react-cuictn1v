@@ -1,1 +1,1578 @@
-<div id="root"></div>
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yeşilbük Köyü</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f9fafb;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script>
+        // Buraya App.jsx kodunuzu kopyalayacaksınız
+        // Ama önce React'i yüklememiz gerekiyor
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/react@18/umd/react.production.min.js';
+        document.head.appendChild(script);
+
+        const script2 = document.createElement('script');
+        script2.src = 'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js';
+        document.head.appendChild(script2);
+
+        // Şimdi App.jsx kodunu ekle
+        const appScript = document.createElement('script');
+        appScript.type = 'text/javascript';
+
+        appScript.textContent = `
+            const { useState, useRef, useEffect } = React;
+
+            const initialUsers = {
+                '+905000000000': {
+                    id: 'admin',
+                    phone: '+905000000000',
+                    name: 'Yönetici',
+                    password: 'yonetici123',
+                    avatar: 'https://placehold.co/100x100/1f2937/white?text=YÖ',
+                    membership: {
+                        joinedDate: '2020-01-01',
+                        duesYear: 2025,
+                        duesPaid: true,
+                        debtAmount: 0,
+                    },
+                    isAdmin: true
+                }
+            };
+
+            const initialPosts = [];
+            const initialPolls = [];
+
+            const DERNEK_IBAN = "TR49000000073773829398483";
+            const DERNEK_ADI = "Yeşilbük Köyü Dernek Vakfı";
+            const DERNEK_BANKA = "Ziraat Bankası / Ümraniye";
+
+            function App() {
+                const [view, setView] = useState('login');
+                const [phone, setPhone] = useState('');
+                const [password, setPassword] = useState('');
+                const [name, setName] = useState('');
+                const [user, setUser] = useState(null);
+                const [error, setError] = useState('');
+
+                const [users, setUsers] = useState(initialUsers);
+                const [posts, setPosts] = useState(initialPosts);
+                const [polls, setPolls] = useState(initialPolls);
+
+                const fileInputRef = useRef(null);
+                const videoInputRef = useRef(null);
+                const avatarInputRef = useRef(null);
+
+                const handleLikePost = (postId) => {
+                    if (!user || user.isAdmin) return;
+
+                    setPosts(prev =>
+                        prev.map(post => {
+                            if (post.id === postId) {
+                                if (post.likedBy.includes(user.id)) {
+                                    return post;
+                                }
+                                return {
+                                    ...post,
+                                    likes: post.likes + 1,
+                                    likedBy: [...post.likedBy, user.id]
+                                };
+                            }
+                            return post;
+                        })
+                    );
+                };
+
+                const handleAddComment = (postId, commentText) => {
+                    if (!user || !commentText.trim()) return;
+                    const newComment = {
+                        id: Date.now().toString(),
+                        userId: user.id,
+                        text: commentText.trim(),
+                        createdAt: new Date().toISOString()
+                    };
+                    setPosts(prev =>
+                        prev.map(post =>
+                            post.id === postId
+                                ? { ...post, comments: [...post.comments, newComment] }
+                                : post
+                        )
+                    );
+                };
+
+                const handleLogin = (e) => {
+                    e.preventDefault();
+                    const formattedPhone = phone.trim().replace(/\s+/g, '');
+
+                    if (!formattedPhone.startsWith('+')) {
+                        setError('Telefon numarası uluslararası formatta olmalı (örn: +905551234567)');
+                        return;
+                    }
+
+                    const userEntry = users[formattedPhone];
+                    if (userEntry) {
+                        if (userEntry.password === password) {
+                            setUser(userEntry);
+                            setView(userEntry.isAdmin ? 'admin-panel' : 'feed');
+                            setError('');
+                        } else {
+                            setError('Hatalı şifre');
+                        }
+                    } else {
+                        setError('Bu telefon numarası ile kayıtlı üye bulunamadı.');
+                    }
+                };
+
+                const handleRegister = (e) => {
+                    e.preventDefault();
+                    const formattedPhone = phone.trim().replace(/\s+/g, '');
+
+                    if (!formattedPhone.startsWith('+')) {
+                        setError('Telefon numarası uluslararası formatta olmalı');
+                        return;
+                    }
+
+                    if (!name.trim()) {
+                        setError('Ad soyad boş bırakılamaz');
+                        return;
+                    }
+
+                    if (password.length < 4) {
+                        setError('Şifre en az 4 karakter olmalıdır');
+                        return;
+                    }
+
+                    if (users[formattedPhone]) {
+                        setError('Bu telefon numarası zaten kayıtlı');
+                        return;
+                    }
+
+                    const newUser = {
+                        id: Date.now().toString(),
+                        phone: formattedPhone,
+                        name: name.trim(),
+                        password: password,
+                        avatar: 'https://placehold.co/100x100/6b7280/white?text=' + (name.trim().charAt(0) || 'U'),
+                        membership: {
+                            joinedDate: new Date().toISOString().split('T')[0],
+                            duesYear: new Date().getFullYear(),
+                            duesPaid: false,
+                            debtAmount: 0,
+                        }
+                    };
+
+                    setUsers(prev => ({ ...prev, [formattedPhone]: newUser }));
+                    setUser(newUser);
+                    setView('feed');
+                    setError('');
+                };
+
+                const handleCreatePost = (e) => {
+                    e.preventDefault();
+                    const content = e.target.content.value;
+                    if (!content.trim()) {
+                        setError('Duyuru metni boş olamaz');
+                        return;
+                    }
+
+                    const imageFile = fileInputRef.current?.files[0];
+                    const videoFile = videoInputRef.current?.files[0];
+
+                    if (!imageFile && !videoFile) {
+                        setError('Lütfen bir görsel veya video yükleyin');
+                        return;
+                    }
+
+                    let media = null;
+                    if (imageFile) {
+                        media = { type: 'image', url: URL.createObjectURL(imageFile) };
+                    } else if (videoFile) {
+                        media = { type: 'video', url: URL.createObjectURL(videoFile) };
+                    }
+
+                    const newPost = {
+                        id: Date.now().toString(),
+                        content: content.trim(),
+                        media,
+                        createdAt: new Date().toISOString(),
+                        likes: 0,
+                        likedBy: [],
+                        comments: []
+                    };
+
+                    setPosts([newPost, ...posts]);
+                    e.target.content.value = '';
+                    if (fileInputRef.current) fileInputRef.current.value = '';
+                    if (videoInputRef.current) videoInputRef.current.value = '';
+                    setError('');
+                };
+
+                const handleCreatePoll = (e) => {
+                    e.preventDefault();
+                    const question = e.target.question.value;
+                    const option1 = e.target.option1.value;
+                    const option2 = e.target.option2.value;
+                    const option3 = e.target.option3.value;
+
+                    if (!question || !option1 || !option2) {
+                        setError('Anket sorusu ve en az 2 seçenek girilmeli');
+                        return;
+                    }
+
+                    const options = [
+                        { id: 'opt1', text: option1, votes: 0 },
+                        { id: 'opt2', text: option2, votes: 0 }
+                    ];
+
+                    if (option3.trim()) {
+                        options.push({ id: 'opt3', text: option3, votes: 0 });
+                    }
+
+                    const newPoll = {
+                        id: Date.now().toString(),
+                        question,
+                        options,
+                        votedBy: [],
+                        createdAt: new Date().toISOString()
+                    };
+
+                    setPolls([newPoll, ...polls]);
+                    e.target.reset();
+                    setError('');
+                };
+
+                const handleVote = (pollId, optionId) => {
+                    if (!user || user.isAdmin) return;
+
+                    setPolls(prev =>
+                        prev.map(poll => {
+                            if (poll.id === pollId && !poll.votedBy.includes(user.id)) {
+                                const updatedOptions = poll.options.map(opt =>
+                                    opt.id === optionId ? { ...opt, votes: opt.votes + 1 } : opt
+                                );
+                                return {
+                                    ...poll,
+                                    options: updatedOptions,
+                                    votedBy: [...poll.votedBy, user.id]
+                                };
+                            }
+                            return poll;
+                        })
+                    );
+                };
+
+                const handleAddNewUser = (e) => {
+                    e.preventDefault();
+                    const phone = e.target.phone.value.trim();
+                    const name = e.target.name.value.trim();
+
+                    if (!phone || !name) {
+                        setError('Telefon numarası ve ad soyad zorunludur.');
+                        return;
+                    }
+
+                    if (!phone.startsWith('+')) {
+                        setError('Telefon numarası uluslararası formatta olmalı (örn: +905551234567)');
+                        return;
+                    }
+
+                    if (users[phone]) {
+                        setError('Bu telefon numarası zaten sistemde kayıtlı.');
+                        return;
+                    }
+
+                    const newUser = {
+                        id: Date.now().toString(),
+                        phone,
+                        name,
+                        password: '123456',
+                        avatar: 'https://placehold.co/100x100/6b7280/white?text=' + (name.charAt(0) || 'U'),
+                        membership: {
+                            joinedDate: new Date().toISOString().split('T')[0],
+                            duesYear: new Date().getFullYear(),
+                            duesPaid: false,
+                            debtAmount: 0,
+                        }
+                    };
+
+                    setUsers(prev => ({ ...prev, [phone]: newUser }));
+                    setError('');
+                    e.target.reset();
+                };
+
+                const handleUpdateOwnAvatar = (e) => {
+                    const file = e.target.files[0];
+                    if (file && user && !user.isAdmin) {
+                        const avatarUrl = URL.createObjectURL(file);
+                        setUsers(prev => ({
+                            ...prev,
+                            [user.phone]: {
+                                ...prev[user.phone],
+                                avatar: avatarUrl
+                            }
+                        }));
+                        setUser(prev => ({ ...prev, avatar: avatarUrl }));
+                    }
+                };
+
+                const handleLogout = () => {
+                    setUser(null);
+                    setPhone('');
+                    setPassword('');
+                    setName('');
+                    setView('login');
+                };
+
+                const formatDate = (dateString) => {
+                    const now = new Date();
+                    const postDate = new Date(dateString);
+                    const diffInHours = Math.floor((now - postDate) / (1000 * 60 * 60));
+                    if (diffInHours < 1) return 'Az önce';
+                    if (diffInHours < 24) return `${diffInHours} saat önce`;
+                    const diffInDays = Math.floor(diffInHours / 24);
+                    if (diffInDays < 7) return `${diffInDays} gün önce`;
+                    return postDate.toLocaleDateString('tr-TR');
+                };
+
+                const getUserName = (userId) => {
+                    if (userId === 'admin') return 'Yönetici';
+                    const userEntry = Object.values(users).find(u => u.id === userId);
+                    return userEntry ? userEntry.name : 'Üye';
+                };
+
+                if (view === 'login') {
+                    return (
+                        <div style={{
+                            minHeight: '100vh',
+                            backgroundColor: '#f9fafb',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: '20px'
+                        }}>
+                            <div style={{
+                                backgroundColor: 'white',
+                                borderRadius: '20px',
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                                padding: '30px',
+                                width: '100%',
+                                maxWidth: '400px',
+                                textAlign: 'center'
+                            }}>
+                                <div style={{
+                                    fontSize: '24px',
+                                    fontWeight: 'bold',
+                                    marginBottom: '10px',
+                                    color: '#1f2937'
+                                }}>Yeşilbük Köyü</div>
+                                <div style={{
+                                    fontSize: '14px',
+                                    color: '#6b7280',
+                                    marginBottom: '20px'
+                                }}>Topluluk Platformu</div>
+
+                                {/* IBAN Bilgileri */}
+                                <div style={{
+                                    backgroundColor: '#10b981',
+                                    color: 'white',
+                                    padding: '10px',
+                                    borderRadius: '8px',
+                                    marginBottom: '20px',
+                                    fontSize: '12px'
+                                }}>
+                                    <strong>IBAN:</strong> {DERNEK_IBAN} • {DERNEK_ADI}
+                                </div>
+
+                                <button
+                                    onClick={() => setView('user-login')}
+                                    style={{
+                                        width: '100%',
+                                        padding: '12px',
+                                        backgroundColor: '#10b981',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '8px',
+                                        fontSize: '16px',
+                                        cursor: 'pointer',
+                                        marginBottom: '10px'
+                                    }}
+                                >
+                                    Üye Girişi
+                                </button>
+                                <button
+                                    onClick={() => setView('user-register')}
+                                    style={{
+                                        width: '100%',
+                                        padding: '12px',
+                                        backgroundColor: 'white',
+                                        color: '#10b981',
+                                        border: '1px solid #10b981',
+                                        borderRadius: '8px',
+                                        fontSize: '16px',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Yeni Üye Ol
+                                </button>
+                            </div>
+                        </div>
+                    );
+                }
+
+                if (view === 'user-login') {
+                    return (
+                        <div style={{
+                            minHeight: '100vh',
+                            backgroundColor: '#f9fafb',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: '20px'
+                        }}>
+                            <div style={{
+                                backgroundColor: 'white',
+                                borderRadius: '20px',
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                                padding: '30px',
+                                width: '100%',
+                                maxWidth: '400px',
+                                textAlign: 'center'
+                            }}>
+                                <div style={{
+                                    fontSize: '24px',
+                                    fontWeight: 'bold',
+                                    marginBottom: '10px',
+                                    color: '#1f2937'
+                                }}>Üye Girişi</div>
+                                <div style={{
+                                    fontSize: '14px',
+                                    color: '#6b7280',
+                                    marginBottom: '20px'
+                                }}>Telefon numaranız ve şifrenizle giriş yapın</div>
+
+                                {/* IBAN Bilgileri */}
+                                <div style={{
+                                    backgroundColor: '#10b981',
+                                    color: 'white',
+                                    padding: '8px',
+                                    borderRadius: '8px',
+                                    marginBottom: '20px',
+                                    fontSize: '12px'
+                                }}>
+                                    <strong>IBAN:</strong> {DERNEK_IBAN}
+                                </div>
+
+                                <form onSubmit={handleLogin} style={{ textAlign: 'left' }}>
+                                    <input
+                                        type="tel"
+                                        value={phone}
+                                        onChange={(e) => setPhone(e.target.value)}
+                                        placeholder="+905551234567"
+                                        style={{
+                                            width: '100%',
+                                            padding: '12px',
+                                            border: '1px solid #d1d5db',
+                                            borderRadius: '8px',
+                                            marginBottom: '10px'
+                                        }}
+                                        required
+                                    />
+                                    <input
+                                        type="password"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        placeholder="Şifreniz"
+                                        style={{
+                                            width: '100%',
+                                            padding: '12px',
+                                            border: '1px solid #d1d5db',
+                                            borderRadius: '8px',
+                                            marginBottom: '10px'
+                                        }}
+                                        required
+                                    />
+                                    {error && <div style={{ color: 'red', marginBottom: '10px' }}>{error}</div>}
+                                    <button
+                                        type="submit"
+                                        style={{
+                                            width: '100%',
+                                            padding: '12px',
+                                            backgroundColor: '#10b981',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '8px',
+                                            cursor: 'pointer',
+                                            marginBottom: '10px'
+                                        }}
+                                    >
+                                        Giriş Yap
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setView('login')}
+                                        style={{
+                                            width: '100%',
+                                            padding: '12px',
+                                            backgroundColor: 'transparent',
+                                            color: '#6b7280',
+                                            border: 'none',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        ← Ana Menü
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    );
+                }
+
+                if (view === 'user-register') {
+                    return (
+                        <div style={{
+                            minHeight: '100vh',
+                            backgroundColor: '#f9fafb',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: '20px'
+                        }}>
+                            <div style={{
+                                backgroundColor: 'white',
+                                borderRadius: '20px',
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                                padding: '30px',
+                                width: '100%',
+                                maxWidth: '400px',
+                                textAlign: 'center'
+                            }}>
+                                <div style={{
+                                    fontSize: '24px',
+                                    fontWeight: 'bold',
+                                    marginBottom: '10px',
+                                    color: '#1f2937'
+                                }}>Yeni Üye Ol</div>
+                                <div style={{
+                                    fontSize: '14px',
+                                    color: '#6b7280',
+                                    marginBottom: '20px'
+                                }}>Bilgilerinizi girerek katılın</div>
+
+                                {/* IBAN Bilgileri */}
+                                <div style={{
+                                    backgroundColor: '#10b981',
+                                    color: 'white',
+                                    padding: '8px',
+                                    borderRadius: '8px',
+                                    marginBottom: '20px',
+                                    fontSize: '12px'
+                                }}>
+                                    <strong>IBAN:</strong> {DERNEK_IBAN}
+                                </div>
+
+                                <form onSubmit={handleRegister} style={{ textAlign: 'left' }}>
+                                    <input
+                                        type="tel"
+                                        value={phone}
+                                        onChange={(e) => setPhone(e.target.value)}
+                                        placeholder="+905551234567"
+                                        style={{
+                                            width: '100%',
+                                            padding: '12px',
+                                            border: '1px solid #d1d5db',
+                                            borderRadius: '8px',
+                                            marginBottom: '10px'
+                                        }}
+                                        required
+                                    />
+                                    <input
+                                        type="text"
+                                        value={name}
+                                        onChange={(e) => setName(e.target.value)}
+                                        placeholder="Ad Soyad"
+                                        style={{
+                                            width: '100%',
+                                            padding: '12px',
+                                            border: '1px solid #d1d5db',
+                                            borderRadius: '8px',
+                                            marginBottom: '10px'
+                                        }}
+                                        required
+                                    />
+                                    <input
+                                        type="password"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        placeholder="Şifre (en az 4 karakter)"
+                                        style={{
+                                            width: '100%',
+                                            padding: '12px',
+                                            border: '1px solid #d1d5db',
+                                            borderRadius: '8px',
+                                            marginBottom: '10px'
+                                        }}
+                                        required
+                                    />
+                                    {error && <div style={{ color: 'red', marginBottom: '10px' }}>{error}</div>}
+                                    <button
+                                        type="submit"
+                                        style={{
+                                            width: '100%',
+                                            padding: '12px',
+                                            backgroundColor: '#10b981',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '8px',
+                                            cursor: 'pointer',
+                                            marginBottom: '10px'
+                                        }}
+                                    >
+                                        Üye Ol
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setView('login')}
+                                        style={{
+                                            width: '100%',
+                                            padding: '12px',
+                                            backgroundColor: 'transparent',
+                                            color: '#6b7280',
+                                            border: 'none',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        ← Ana Menü
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    );
+                }
+
+                if (view === 'feed') {
+                    return (
+                        <div style={{
+                            minHeight: '100vh',
+                            backgroundColor: '#f9fafb'
+                        }}>
+                            <header style={{
+                                backgroundColor: 'white',
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                                padding: '10px 20px',
+                                position: 'sticky',
+                                top: 0,
+                                zIndex: 100
+                            }}>
+                                <div style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center'
+                                }}>
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}>
+                                        <div style={{
+                                            width: '32px',
+                                            height: '32px',
+                                            borderRadius: '50%',
+                                            backgroundColor: '#10b981',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            marginRight: '10px'
+                                        }}>
+                                            <span style={{
+                                                color: 'white',
+                                                fontWeight: 'bold',
+                                                fontSize: '14px'
+                                            }}>YK</span>
+                                        </div>
+                                        <span style={{
+                                            fontWeight: 'bold',
+                                            color: '#1f2937'
+                                        }}>Yeşilbük Köyü</span>
+                                    </div>
+                                    <div style={{
+                                        display: 'flex',
+                                        gap: '10px'
+                                    }}>
+                                        <button
+                                            onClick={() => setView('membership')}
+                                            style={{
+                                                padding: '6px 12px',
+                                                backgroundColor: '#10b981',
+                                                color: 'white',
+                                                border: 'none',
+                                                borderRadius: '20px',
+                                                fontSize: '12px',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            Üyelik
+                                        </button>
+                                        <button
+                                            onClick={handleLogout}
+                                            style={{
+                                                padding: '6px 12px',
+                                                backgroundColor: 'transparent',
+                                                color: '#6b7280',
+                                                border: 'none',
+                                                fontSize: '12px',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            Çıkış
+                                        </button>
+                                    </div>
+                                </div>
+                            </header>
+
+                            {/* IBAN Bilgileri */}
+                            <div style={{
+                                backgroundColor: '#10b981',
+                                color: 'white',
+                                padding: '8px',
+                                textAlign: 'center',
+                                fontSize: '12px'
+                            }}>
+                                <strong>Destek için:</strong> {DERNEK_IBAN} • {DERNEK_ADI}
+                            </div>
+
+                            <main style={{
+                                padding: '20px'
+                            }}>
+                                {polls.map((poll) => (
+                                    <div key={poll.id} style={{
+                                        backgroundColor: 'white',
+                                        borderRadius: '12px',
+                                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                                        marginBottom: '20px',
+                                        overflow: 'hidden'
+                                    }}>
+                                        <div style={{
+                                            padding: '15px'
+                                        }}>
+                                            <div style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                marginBottom: '10px'
+                                            }}>
+                                                <div style={{
+                                                    width: '32px',
+                                                    height: '32px',
+                                                    borderRadius: '50%',
+                                                    backgroundColor: '#3b82f6',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    marginRight: '10px'
+                                                }}>
+                                                    <span style={{
+                                                        color: 'white',
+                                                        fontSize: '14px'
+                                                    }}>📊</span>
+                                                </div>
+                                                <div>
+                                                    <h3 style={{
+                                                        fontWeight: 'bold',
+                                                        color: '#1f2937',
+                                                        marginBottom: '2px'
+                                                    }}>Köy Anketi</h3>
+                                                    <p style={{
+                                                        fontSize: '12px',
+                                                        color: '#6b7280'
+                                                    }}>{formatDate(poll.createdAt)}</p>
+                                                </div>
+                                            </div>
+                                            <h4 style={{
+                                                fontWeight: 'medium',
+                                                color: '#1f2937',
+                                                marginBottom: '10px'
+                                            }}>{poll.question}</h4>
+                                            <div style={{
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                gap: '8px'
+                                            }}>
+                                                {poll.options.map((option) => (
+                                                    <button
+                                                        key={option.id}
+                                                        onClick={() => handleVote(poll.id, option.id)}
+                                                        disabled={poll.votedBy.includes(user?.id) || user?.isAdmin}
+                                                        style={{
+                                                            width: '100%',
+                                                            padding: '10px',
+                                                            border: '1px solid #d1d5db',
+                                                            borderRadius: '8px',
+                                                            textAlign: 'left',
+                                                            backgroundColor: poll.votedBy.includes(user?.id) 
+                                                                ? (option.votes === Math.max(...poll.options.map(o => o.votes)) 
+                                                                    ? '#10b981'
+                                                                    : '#f3f4f6')
+                                                                : '#ffffff',
+                                                            color: poll.votedBy.includes(user?.id) 
+                                                                ? 'white'
+                                                                : '#1f2937',
+                                                            cursor: poll.votedBy.includes(user?.id) || user?.isAdmin ? 'not-allowed' : 'pointer',
+                                                            display: 'flex',
+                                                            justifyContent: 'space-between'
+                                                        }}
+                                                    >
+                                                        <span>{option.text}</span>
+                                                        <span>{option.votes} oy</span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            {poll.votedBy.includes(user?.id) && (
+                                                <p style={{
+                                                    fontSize: '12px',
+                                                    color: '#6b7280',
+                                                    marginTop: '10px',
+                                                    textAlign: 'center'
+                                                }}>
+                                                    Oyunuz kaydedildi
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+
+                                {posts.map((post) => (
+                                    <div key={post.id} style={{
+                                        backgroundColor: 'white',
+                                        borderRadius: '12px',
+                                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                                        marginBottom: '20px',
+                                        overflow: 'hidden'
+                                    }}>
+                                        <div style={{
+                                            padding: '15px'
+                                        }}>
+                                            <div style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                marginBottom: '10px'
+                                            }}>
+                                                <div style={{
+                                                    width: '32px',
+                                                    height: '32px',
+                                                    borderRadius: '50%',
+                                                    backgroundColor: '#10b981',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    marginRight: '10px'
+                                                }}>
+                                                    <span style={{
+                                                        color: 'white',
+                                                        fontWeight: 'bold',
+                                                        fontSize: '14px'
+                                                    }}>YK</span>
+                                                </div>
+                                                <div>
+                                                    <h3 style={{
+                                                        fontWeight: 'bold',
+                                                        color: '#1f2937',
+                                                        marginBottom: '2px'
+                                                    }}>Yeşilbük Köyü</h3>
+                                                    <p style={{
+                                                        fontSize: '12px',
+                                                        color: '#6b7280'
+                                                    }}>{formatDate(post.createdAt)}</p>
+                                                </div>
+                                            </div>
+                                            <p style={{
+                                                color: '#1f2937',
+                                                marginBottom: '10px',
+                                                whiteSpace: 'pre-wrap'
+                                            }}>{post.content}</p>
+
+                                            {post.media && (
+                                                <div style={{
+                                                    borderRadius: '8px',
+                                                    overflow: 'hidden',
+                                                    border: '1px solid #d1d5db',
+                                                    marginBottom: '10px'
+                                                }}>
+                                                    {post.media.type === 'video' ? (
+                                                        <video src={post.media.url} controls style={{
+                                                            width: '100%',
+                                                            maxHeight: '400px',
+                                                            objectFit: 'cover'
+                                                        }}></video>
+                                                    ) : (
+                                                        <img src={post.media.url} alt="Duyuru" style={{
+                                                            width: '100%',
+                                                            maxHeight: '400px',
+                                                            objectFit: 'cover'
+                                                        }} />
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            <div style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                marginBottom: '10px',
+                                                gap: '15px'
+                                            }}>
+                                                <button
+                                                    onClick={() => handleLikePost(post.id)}
+                                                    disabled={!user || user.isAdmin || post.likedBy.includes(user.id)}
+                                                    style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '5px',
+                                                        backgroundColor: 'transparent',
+                                                        border: 'none',
+                                                        color: post.likedBy.includes(user?.id) ? '#10b981' : '#6b7280',
+                                                        cursor: (!user || user.isAdmin) ? 'not-allowed' : 'pointer'
+                                                    }}
+                                                >
+                                                    <span>👍</span>
+                                                    <span>{post.likes}</span>
+                                                </button>
+                                                <span style={{
+                                                    color: '#6b7280'
+                                                }}>{post.comments.length} yorum</span>
+                                            </div>
+
+                                            {user && !user.isAdmin && (
+                                                <div style={{
+                                                    display: 'flex',
+                                                    gap: '8px',
+                                                    marginBottom: '10px'
+                                                }}>
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Yorum yaz..."
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') {
+                                                                handleAddComment(post.id, e.target.value);
+                                                                e.target.value = '';
+                                                            }
+                                                        }}
+                                                        style={{
+                                                            flex: 1,
+                                                            padding: '8px',
+                                                            border: '1px solid #d1d5db',
+                                                            borderRadius: '20px',
+                                                            fontSize: '14px'
+                                                        }}
+                                                    />
+                                                    <button
+                                                        onClick={(e) => {
+                                                            const input = e.target.previousElementSibling;
+                                                            if (input.value.trim()) {
+                                                                handleAddComment(post.id, input.value);
+                                                                input.value = '';
+                                                            }
+                                                        }}
+                                                        style={{
+                                                            padding: '8px 12px',
+                                                            backgroundColor: '#10b981',
+                                                            color: 'white',
+                                                            border: 'none',
+                                                            borderRadius: '20px',
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        Gönder
+                                                    </button>
+                                                </div>
+                                            )}
+
+                                            {post.comments.length > 0 && (
+                                                <div style={{
+                                                    maxHeight: '200px',
+                                                    overflowY: 'auto',
+                                                    marginTop: '10px'
+                                                }}>
+                                                    {post.comments.map((comment) => (
+                                                        <div key={comment.id} style={{
+                                                            display: 'flex',
+                                                            gap: '8px',
+                                                            marginBottom: '8px',
+                                                            padding: '8px',
+                                                            backgroundColor: '#f3f4f6',
+                                                            borderRadius: '8px'
+                                                        }}>
+                                                            <div style={{
+                                                                width: '24px',
+                                                                height: '24px',
+                                                                borderRadius: '50%',
+                                                                backgroundColor: '#d1d5db',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                fontSize: '12px',
+                                                                fontWeight: 'bold'
+                                                            }}>
+                                                                {getUserName(comment.userId).charAt(0)}
+                                                            </div>
+                                                            <div style={{
+                                                                flex: 1
+                                                            }}>
+                                                                <div style={{
+                                                                    fontWeight: 'bold',
+                                                                    fontSize: '14px',
+                                                                    color: '#1f2937'
+                                                                }}>
+                                                                    {getUserName(comment.userId)}
+                                                                </div>
+                                                                <p style={{
+                                                                    fontSize: '12px',
+                                                                    color: '#6b7280',
+                                                                    marginTop: '4px'
+                                                                }}>
+                                                                    {comment.text}
+                                                                </p>
+                                                                <p style={{
+                                                                    fontSize: '10px',
+                                                                    color: '#9ca3af',
+                                                                    marginTop: '4px'
+                                                                }}>
+                                                                    {formatDate(comment.createdAt)}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </main>
+                        </div>
+                    );
+                }
+
+                if (view === 'membership') {
+                    return (
+                        <div style={{
+                            minHeight: '100vh',
+                            backgroundColor: '#f9fafb'
+                        }}>
+                            <header style={{
+                                backgroundColor: 'white',
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                                padding: '10px 20px',
+                                position: 'sticky',
+                                top: 0,
+                                zIndex: 100
+                            }}>
+                                <div style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center'
+                                }}>
+                                    <button
+                                        onClick={() => setView('feed')}
+                                        style={{
+                                            padding: '6px 12px',
+                                            backgroundColor: 'transparent',
+                                            color: '#10b981',
+                                            border: 'none',
+                                            fontSize: '14px',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        ← Geri Dön
+                                    </button>
+                                    <h1 style={{
+                                        fontWeight: 'bold',
+                                        color: '#1f2937'
+                                    }}>Üyelik Bilgilerim</h1>
+                                    <div style={{ width: '20px' }}></div>
+                                </div>
+                            </header>
+
+                            {/* IBAN Bilgileri */}
+                            <div style={{
+                                backgroundColor: '#10b981',
+                                color: 'white',
+                                padding: '8px',
+                                textAlign: 'center',
+                                fontSize: '12px'
+                            }}>
+                                <strong>Destek için IBAN:</strong> {DERNEK_IBAN}
+                            </div>
+
+                            <main style={{
+                                padding: '20px'
+                            }}>
+                                <div style={{
+                                    backgroundColor: 'white',
+                                    borderRadius: '12px',
+                                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                                    padding: '20px',
+                                    textAlign: 'center'
+                                }}>
+                                    <div style={{
+                                        position: 'relative',
+                                        display: 'inline-block',
+                                        marginBottom: '10px'
+                                    }}>
+                                        <img
+                                            src={user.avatar}
+                                            alt={user.name}
+                                            style={{
+                                                width: '80px',
+                                                height: '80px',
+                                                borderRadius: '50%',
+                                                border: '2px solid #10b981',
+                                                marginBottom: '8px'
+                                            }}
+                                        />
+                                        {!user.isAdmin && (
+                                            <label style={{
+                                                position: 'absolute',
+                                                bottom: '0',
+                                                right: '0',
+                                                backgroundColor: '#10b981',
+                                                color: 'white',
+                                                padding: '4px',
+                                                borderRadius: '50%',
+                                                cursor: 'pointer'
+                                            }}>
+                                                ✎
+                                                <input
+                                                    type="file"
+                                                    accept="image/png, image/jpeg"
+                                                    onChange={handleUpdateOwnAvatar}
+                                                    ref={avatarInputRef}
+                                                    style={{
+                                                        display: 'none'
+                                                    }}
+                                                />
+                                            </label>
+                                        )}
+                                    </div>
+                                    <h2 style={{
+                                        fontWeight: 'bold',
+                                        color: '#1f2937',
+                                        fontSize: '18px',
+                                        marginBottom: '4px'
+                                    }}>{user.name}</h2>
+                                    <p style={{
+                                        color: '#6b7280',
+                                        fontSize: '14px'
+                                    }}>{user.phone || 'Yönetici Hesabı'}</p>
+
+                                    <div style={{
+                                        marginTop: '20px',
+                                        textAlign: 'left'
+                                    }}>
+                                        <div style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            marginBottom: '8px'
+                                        }}>
+                                            <span style={{
+                                                color: '#6b7280'
+                                            }}>Üye Olma Tarihi</span>
+                                            <span style={{
+                                                fontWeight: 'bold',
+                                                color: '#1f2937'
+                                            }}>{new Date(user.membership.joinedDate).toLocaleDateString('tr-TR')}</span>
+                                        </div>
+                                        <div style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            marginBottom: '8px'
+                                        }}>
+                                            <span style={{
+                                                color: '#6b7280'
+                                            }}>Aidat Yılı</span>
+                                            <span style={{
+                                                fontWeight: 'bold',
+                                                color: '#1f2937'
+                                            }}>{user.membership.duesYear}</span>
+                                        </div>
+                                        <div style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            marginBottom: '8px'
+                                        }}>
+                                            <span style={{
+                                                color: '#6b7280'
+                                            }}>Aidat Ödendi mi?</span>
+                                            <span style={{
+                                                fontWeight: 'bold',
+                                                color: user.membership.duesPaid ? '#10b981' : '#ef4444'
+                                            }}>
+                                                {user.membership.duesPaid ? 'Evet' : 'Hayır'}
+                                            </span>
+                                        </div>
+                                        <div style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between'
+                                        }}>
+                                            <span style={{
+                                                color: '#6b7280'
+                                            }}>Borç Tutarı</span>
+                                            <span style={{
+                                                fontWeight: 'bold',
+                                                color: user.membership.debtAmount > 0 ? '#ef4444' : '#10b981'
+                                            }}>
+                                                {user.membership.debtAmount > 0 ? `${user.membership.debtAmount} TL` : 'Borç Yok'}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div style={{
+                                        marginTop: '20px',
+                                        fontSize: '12px',
+                                        color: '#6b7280',
+                                        textAlign: 'center'
+                                    }}>
+                                        <p>Bilgileriniz yönetici tarafından güncellenmektedir.</p>
+                                        {!user.isAdmin && <p>Profil fotoğrafınızı değiştirmek için ✎ simgesine tıklayın</p>}
+                                    </div>
+                                </div>
+                            </main>
+                        </div>
+                    );
+                }
+
+                if (view === 'admin-panel') {
+                    return (
+                        <div style={{
+                            minHeight: '100vh',
+                            backgroundColor: '#f9fafb'
+                        }}>
+                            <header style={{
+                                backgroundColor: '#1f2937',
+                                color: 'white',
+                                padding: '10px 20px',
+                                position: 'sticky',
+                                top: 0,
+                                zIndex: 100
+                            }}>
+                                <div style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center'
+                                }}>
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}>
+                                        <div style={{
+                                            width: '32px',
+                                            height: '32px',
+                                            borderRadius: '50%',
+                                            backgroundColor: 'white',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            marginRight: '10px',
+                                            color: '#1f2937',
+                                            fontWeight: 'bold'
+                                        }}>
+                                            YK
+                                        </div>
+                                        <h1 style={{
+                                            fontWeight: 'bold',
+                                            fontSize: '18px'
+                                        }}>Yönetici Paneli</h1>
+                                    </div>
+                                    <button
+                                        onClick={handleLogout}
+                                        style={{
+                                            padding: '6px 12px',
+                                            backgroundColor: '#ef4444',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '4px',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        Çıkış
+                                    </button>
+                                </div>
+                            </header>
+
+                            <main style={{
+                                padding: '20px'
+                            }}>
+                                <div style={{
+                                    backgroundColor: 'white',
+                                    borderRadius: '12px',
+                                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                                    padding: '20px',
+                                    marginBottom: '20px'
+                                }}>
+                                    <h2 style={{
+                                        fontWeight: 'bold',
+                                        color: '#1f2937',
+                                        marginBottom: '10px'
+                                    }}>Yeni Üye Ekle</h2>
+                                    <form onSubmit={handleAddNewUser} style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: '1fr 1fr',
+                                        gap: '10px',
+                                        marginBottom: '10px'
+                                    }}>
+                                        <div>
+                                            <label style={{
+                                                display: 'block',
+                                                fontSize: '12px',
+                                                color: '#6b7280',
+                                                marginBottom: '4px'
+                                            }}>Telefon Numarası *</label>
+                                            <input
+                                                name="phone"
+                                                type="tel"
+                                                placeholder="+905551234567"
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '8px',
+                                                    border: '1px solid #d1d5db',
+                                                    borderRadius: '4px'
+                                                }}
+                                                required
+                                            />
+                                        </div>
+                                        <div>
+                                            <label style={{
+                                                display: 'block',
+                                                fontSize: '12px',
+                                                color: '#6b7280',
+                                                marginBottom: '4px'
+                                            }}>Ad Soyad *</label>
+                                            <input
+                                                name="name"
+                                                type="text"
+                                                placeholder="Ahmet Yılmaz"
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '8px',
+                                                    border: '1px solid #d1d5db',
+                                                    borderRadius: '4px'
+                                                }}
+                                                required
+                                            />
+                                        </div>
+                                        <div style={{
+                                            gridColumn: '1 / 3'
+                                        }}>
+                                            {error && <div style={{
+                                                color: 'red',
+                                                marginBottom: '8px'
+                                            }}>{error}</div>}
+                                            <button
+                                                type="submit"
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '8px',
+                                                    backgroundColor: '#10b981',
+                                                    color: 'white',
+                                                    border: 'none',
+                                                    borderRadius: '4px',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                Üye Ekle
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+
+                                <div style={{
+                                    backgroundColor: 'white',
+                                    borderRadius: '12px',
+                                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                                    padding: '20px',
+                                    marginBottom: '20px'
+                                }}>
+                                    <h2 style={{
+                                        fontWeight: 'bold',
+                                        color: '#1f2937',
+                                        marginBottom: '10px'
+                                    }}>Yeni Duyuru</h2>
+                                    <form onSubmit={handleCreatePost} style={{
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '10px'
+                                    }}>
+                                        <textarea
+                                            name="content"
+                                            placeholder="Duyuru metnini yazın..."
+                                            style={{
+                                                width: '100%',
+                                                padding: '8px',
+                                                border: '1px solid #d1d5db',
+                                                borderRadius: '4px',
+                                                minHeight: '80px'
+                                            }}
+                                            required
+                                        />
+                                        <div>
+                                            <label style={{
+                                                display: 'block',
+                                                fontSize: '12px',
+                                                color: '#6b7280',
+                                                marginBottom: '4px'
+                                            }}>Görsel Yükle (.png, .jpg)</label>
+                                            <input
+                                                type="file"
+                                                accept="image/png, image/jpeg"
+                                                ref={fileInputRef}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '8px',
+                                                    border: '1px solid #d1d5db',
+                                                    borderRadius: '4px'
+                                                }}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label style={{
+                                                display: 'block',
+                                                fontSize: '12px',
+                                                color: '#6b7280',
+                                                marginBottom: '4px'
+                                            }}>Video Yükle (.mp4, .mov)</label>
+                                            <input
+                                                type="file"
+                                                accept="video/mp4, video/quicktime"
+                                                ref={videoInputRef}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '8px',
+                                                    border: '1px solid #d1d5db',
+                                                    borderRadius: '4px'
+                                                }}
+                                            />
+                                        </div>
+                                        {error && <div style={{
+                                            color: 'red',
+                                            marginBottom: '8px'
+                                        }}>{error}</div>}
+                                        <button
+                                            type="submit"
+                                            style={{
+                                                width: '100%',
+                                                padding: '8px',
+                                                backgroundColor: '#10b981',
+                                                color: 'white',
+                                                border: 'none',
+                                                borderRadius: '4px',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            Duyuruyu Yayınla
+                                        </button>
+                                    </form>
+                                </div>
+
+                                <div style={{
+                                    backgroundColor: 'white',
+                                    borderRadius: '12px',
+                                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                                    padding: '20px'
+                                }}>
+                                    <h2 style={{
+                                        fontWeight: 'bold',
+                                        color: '#1f2937',
+                                        marginBottom: '10px'
+                                    }}>Köy Halkı Talep Anketi</h2>
+                                    <p style={{
+                                        fontSize: '12px',
+                                        color: '#6b7280',
+                                        marginBottom: '10px'
+                                    }}>Köy halkının ihtiyaçlarını öğrenmek için anket oluşturun</p>
+                                    <form onSubmit={handleCreatePoll} style={{
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '10px'
+                                    }}>
+                                        <input
+                                            name="question"
+                                            type="text"
+                                            placeholder="Anket sorusu (örn: Köyde hangi etkinliği istersiniz?)"
+                                            style={{
+                                                width: '100%',
+                                                padding: '8px',
+                                                border: '1px solid #d1d5db',
+                                                borderRadius: '4px'
+                                            }}
+                                            required
+                                        />
+                                        <input
+                                            name="option1"
+                                            type="text"
+                                            placeholder="Seçenek 1"
+                                            style={{
+                                                width: '100%',
+                                                padding: '8px',
+                                                border: '1px solid #d1d5db',
+                                                borderRadius: '4px'
+                                            }}
+                                            required
+                                        />
+                                        <input
+                                            name="option2"
+                                            type="text"
+                                            placeholder="Seçenek 2"
+                                            style={{
+                                                width: '100%',
+                                                padding: '8px',
+                                                border: '1px solid #d1d5db',
+                                                borderRadius: '4px'
+                                            }}
+                                            required
+                                        />
+                                        <input
+                                            name="option3"
+                                            type="text"
+                                            placeholder="Seçenek 3 (isteğe bağlı)"
+                                            style={{
+                                                width: '100%',
+                                                padding: '8px',
+                                                border: '1px solid #d1d5db',
+                                                borderRadius: '4px'
+                                            }}
+                                        />
+                                        <button
+                                            type="submit"
+                                            style={{
+                                                width: '100%',
+                                                padding: '8px',
+                                                backgroundColor: '#3b82f6',
+                                                color: 'white',
+                                                border: 'none',
+                                                borderRadius: '4px',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            Anketi Yayınla
+                                        </button>
+                                    </form>
+                                </div>
+                            </main>
+                        </div>
+                    );
+                }
+
+                return null;
+            }
+
+            ReactDOM.render(<App />, document.getElementById('root'));
+        `;
+        document.body.appendChild(appScript);
+    </script>
+</body>
+</html>
